@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>2진수 카드 게임</title>
+<style>
+:root{
+  --bg:#EEF3FB; --ink:#16213E; --muted:#5B6B8C;
+  --front:#FFD23F; --front-ink:#16213E; --back:#2B4FD8; --back-ink:#DCE6FF;
+  --panel:#FFFFFF; --line:#C9D4EC; --dot:#16213E;
+  --target:#16213E; --target-ink:#FFFFFF; --good:#12803A; --goodbg:#D8F5E2;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E1426; --ink:#EAF0FF; --muted:#98A8CC;
+    --back:#3E63F0; --panel:#17203A; --line:#2B3858;
+    --target:#EAF0FF; --target-ink:#0E1426; --good:#6EE29A; --goodbg:#143A26;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E1426; --ink:#EAF0FF; --muted:#98A8CC;
+  --back:#3E63F0; --panel:#17203A; --line:#2B3858;
+  --target:#EAF0FF; --target-ink:#0E1426; --good:#6EE29A; --goodbg:#143A26;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:"Jua","Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  min-height:100vh; display:flex; justify-content:center;
+}
+main{width:100%; max-width:780px; padding:22px 16px 40px}
+h1{font-size:clamp(26px,6vw,38px); margin:0 0 14px; letter-spacing:-0.02em}
+
+.bar{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px; font-size:18px}
+.bar .timer{font-size:24px; font-weight:700; font-variant-numeric:tabular-nums}
+
+.target{
+  background:var(--target); color:var(--target-ink); border-radius:18px;
+  padding:16px 20px; text-align:center;
+}
+.target .lbl{font-size:16px; opacity:.8}
+.target .tn{font-size:clamp(56px,16vw,96px); font-weight:700; line-height:1.05; font-variant-numeric:tabular-nums}
+.msg{margin:10px 0 0; min-height:1.6em; font-size:16px; text-align:center; color:var(--muted); word-break:keep-all}
+.msg.ok{color:var(--good); background:var(--goodbg); border-radius:10px; padding:6px 10px; font-weight:700}
+
+.result{
+  background:var(--goodbg); color:var(--good); border:3px solid var(--good); border-radius:18px;
+  padding:20px; text-align:center;
+}
+.result .lbl{font-size:18px}
+.result .final{font-size:clamp(56px,15vw,96px); font-weight:700; line-height:1.1; font-variant-numeric:tabular-nums}
+.result .sum{margin:6px 0 0; font-size:16px}
+
+.cards{
+  display:grid; grid-auto-flow:column; grid-auto-columns:minmax(58px,120px);
+  justify-content:safe center; gap:clamp(6px,2vw,14px);
+  margin-top:20px; padding:2px 2px 6px; overflow-x:auto;
+}
+.col{display:flex; flex-direction:column; min-width:0}
+.card{
+  appearance:none; border:0; padding:0; background:none; cursor:pointer;
+  perspective:800px; aspect-ratio:2/3.1; font:inherit; color:inherit; width:100%;
+}
+.card:disabled{cursor:default}
+.card:focus-visible{outline:3px solid var(--ink); outline-offset:4px; border-radius:14px}
+.inner{position:relative; width:100%; height:100%; transform-style:preserve-3d; transition:transform .5s cubic-bezier(.3,.7,.3,1)}
+.card[aria-pressed="false"] .inner{transform:rotateY(180deg)}
+.face{
+  position:absolute; inset:0; backface-visibility:hidden; -webkit-backface-visibility:hidden;
+  border-radius:14px; display:flex; flex-direction:column; align-items:center; padding:clamp(5px,1.6vw,10px);
+}
+.front{background:var(--front); color:var(--front-ink); box-shadow:0 4px 0 #C99A00}
+.back{background:var(--back); color:var(--back-ink); transform:rotateY(180deg); justify-content:center; box-shadow:0 4px 0 #1B34A0}
+.num{font-size:clamp(18px,5vw,32px); font-weight:700; line-height:1}
+.num.d3{font-size:clamp(14px,3.6vw,24px)}
+.dots{display:grid; gap:clamp(1px,.5vw,4px); margin:auto 0; align-content:center}
+.dots i{display:block; aspect-ratio:1; border-radius:50%; background:var(--dot)}
+.back .pat{width:70%; height:78%; border-radius:10px; border:2px dashed rgba(220,230,255,.55);
+  background:repeating-linear-gradient(45deg,transparent 0 8px,rgba(220,230,255,.12) 8px 16px)}
+.pop{animation:pop .4s cubic-bezier(.3,1.5,.5,1)}
+@keyframes pop{from{transform:scale(.4);opacity:0}to{transform:scale(1);opacity:1}}
+.bit{margin-top:8px; text-align:center; font-size:clamp(18px,4.5vw,26px); font-weight:700; font-variant-numeric:tabular-nums}
+.bit.off{color:var(--muted)}
+
+.panels{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:20px}
+.panel{background:var(--panel); border:2px solid var(--line); border-radius:16px; padding:12px 16px}
+.panel h2{margin:0 0 4px; font-size:15px; color:var(--muted); font-weight:400}
+.big{font-size:clamp(30px,8vw,48px); font-weight:700; line-height:1.1; font-variant-numeric:tabular-nums; overflow-wrap:anywhere}
+.bin{letter-spacing:.1em}
+.eq{margin:6px 0 0; font-size:14px; color:var(--muted); min-height:1.4em}
+
+.setup{margin-top:20px; background:var(--panel); border:2px solid var(--line); border-radius:16px; padding:14px 16px}
+.stats{display:flex; flex-wrap:wrap; gap:6px 22px; font-size:16px}
+.stats b{font-size:20px; font-variant-numeric:tabular-nums}
+.actions{display:flex; gap:10px; margin-top:12px; flex-wrap:wrap}
+.btn{
+  font:inherit; font-size:16px; padding:10px 18px; border-radius:999px; cursor:pointer;
+  background:var(--panel); color:var(--ink); border:2px solid var(--line);
+}
+.btn:hover:not(:disabled){border-color:var(--ink)}
+.btn:disabled{opacity:.4; cursor:not-allowed}
+.btn:focus-visible{outline:3px solid var(--ink); outline-offset:2px}
+.btn.main{background:var(--ink); color:var(--bg); border-color:var(--ink)}
+.note{margin:10px 0 0; font-size:14px; color:var(--muted); line-height:1.5}
+@media (max-width:520px){.panels{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){.inner{transition:none}.pop{animation:none}}
+</style>
+</head>
+<body>
+<main>
+  <h1>2진수 카드 게임</h1>
+
+  <div class="bar">
+    <span id="qtext">문제 1 / 5</span>
+    <span class="timer" id="timer">0.0초</span>
+  </div>
+
+  <section class="target" id="targetBox" aria-live="polite">
+    <div class="lbl">목표 숫자</div>
+    <div class="tn" id="tn">0</div>
+  </section>
+  <section class="result" id="result" hidden>
+    <div class="lbl">모두 맞혔어요! 걸린 시간</div>
+    <div class="final" id="final">0.0초</div>
+    <p class="sum" id="rsum"></p>
+    <div class="actions" style="justify-content:center">
+      <button class="btn main" id="again2" type="button">다시 하기</button>
+    </div>
+  </section>
+  <p class="msg" id="msg" aria-live="polite"></p>
+
+  <div class="cards" id="cards"></div>
+
+  <div class="panels">
+    <section class="panel" aria-live="polite">
+      <h2>내 카드의 10진수</h2>
+      <div class="big" id="dec">0</div>
+      <div class="eq" id="eq">앞면 카드가 없어요</div>
+    </section>
+    <section class="panel" aria-live="polite">
+      <h2>내 카드의 2진수</h2>
+      <div class="big bin" id="bin">00000</div>
+      <div class="eq">점이 보이면 1, 뒷면이면 0</div>
+    </section>
+  </div>
+
+  <section class="setup">
+    <div class="stats">
+      <span>카드 <b id="cnt">5</b>장 (<b id="nbits">5</b>비트)</span>
+      <span>만들 수 있는 가장 큰 숫자 <b id="maxv">31</b></span>
+    </div>
+    <div class="actions">
+      <button class="btn" id="sub" type="button">카드 빼기 −</button>
+      <button class="btn" id="add" type="button">카드 추가 +</button>
+      <button class="btn" id="again" type="button">다시 하기</button>
+    </div>
+    <p class="note">카드를 추가하면 왼쪽에 2배 값의 카드가 생겨요. 카드는 1장부터 10장까지 쓸 수 있고, 카드 수를 바꾸면 게임이 새로 시작돼요.</p>
+  </section>
+</main>
+
+<script>
+(function(){
+  var MINN=1, MAXN=10, TOTAL=5;
+  var n=5, bits=[], target=0, q=0, used=[];
+  var t0=null, timerId=null, elapsed=0, phase='play', nextId=null;
+  var btns=[], bitEls=[];
+  var $=function(id){return document.getElementById(id);};
+
+  function vals(){var a=[];for(var i=n-1;i>=0;i--)a.push(Math.pow(2,i));return a;}
+  function maxVal(){return Math.pow(2,n)-1;}
+  function fmt(ms){
+    var s=ms/1000;
+    if(s>=60){var m=Math.floor(s/60);return m+'분 '+(s-m*60).toFixed(1)+'초';}
+    return s.toFixed(1)+'초';
+  }
+  function stopTimer(){ if(timerId){clearInterval(timerId);timerId=null;} }
+  function tick(){ $('timer').textContent=fmt(performance.now()-t0); }
+
+  function buildCards(popFirst){
+    var wrap=$('cards'); wrap.innerHTML=''; btns=[]; bitEls=[];
+    vals().forEach(function(v,i){
+      var col=document.createElement('div'); col.className='col';
+      var b=document.createElement('button'); b.type='button';
+      b.className='card'+(popFirst&&i===0?' pop':'');
+      b.setAttribute('aria-pressed','false');
+      var c=Math.max(1,Math.ceil(Math.sqrt(v/1.5)));
+      var dots=''; for(var k=0;k<v;k++) dots+='<i></i>';
+      b.innerHTML='<div class="inner"><div class="face front">'+
+        '<span class="num'+(String(v).length>=3?' d3':'')+'">'+v+'</span>'+
+        '<div class="dots" style="grid-template-columns:repeat('+c+',1fr);width:min(100%,'+(c*16)+'px)">'+dots+'</div></div>'+
+        '<div class="face back"><div class="pat"></div></div></div>';
+      b.addEventListener('click',function(){onFlip(i);});
+      var bit=document.createElement('div'); bit.className='bit off'; bit.textContent='0';
+      col.appendChild(b); col.appendChild(bit); wrap.appendChild(col);
+      btns.push(b); bitEls.push(bit);
+    });
+  }
+
+  function pickTarget(){
+    var max=maxVal(), pool=[];
+    for(var v=1;v<=max;v++) if(used.indexOf(v)<0) pool.push(v);
+    if(!pool.length) for(var w=1;w<=max;w++) pool.push(w);
+    target=pool[Math.floor(Math.random()*pool.length)];
+    used.push(target);
+  }
+
+  function sumOf(){
+    var V=vals(), s=0; bits.forEach(function(on,i){ if(on) s+=V[i]; }); return s;
+  }
+
+  function render(){
+    var V=vals(), sum=0, parts=[], bin='';
+    bits.forEach(function(on,i){
+      btns[i].setAttribute('aria-pressed',on?'true':'false');
+      btns[i].setAttribute('aria-label',V[i]+' 카드, '+(on?'앞면':'뒷면'));
+      btns[i].disabled=(phase!=='play');
+      bitEls[i].textContent=on?'1':'0';
+      bitEls[i].className='bit'+(on?'':' off');
+      bin+=on?'1':'0';
+      if(on){sum+=V[i];parts.push(V[i]);}
+    });
+    $('dec').textContent=sum;
+    $('bin').textContent=bin;
+    $('eq').textContent=parts.length?parts.join(' + ')+' = '+sum:'앞면 카드가 없어요';
+    $('tn').textContent=target;
+    $('qtext').textContent=phase==='done'?'게임 끝!':'문제 '+(q+1)+' / '+TOTAL;
+    $('cnt').textContent=n; $('nbits').textContent=n; $('maxv').textContent=maxVal();
+    $('sub').disabled=(n<=MINN); $('add').disabled=(n>=MAXN);
+  }
+
+  function setMsg(text,ok){
+    var m=$('msg'); m.textContent=text; m.className='msg'+(ok?' ok':'');
+  }
+
+  function newGame(){
+    stopTimer(); if(nextId){clearTimeout(nextId);nextId=null;}
+    q=0; used=[]; t0=null; elapsed=0; phase='play';
+    bits=vals().map(function(){return false;});
+    pickTarget();
+    $('timer').textContent='0.0초';
+    $('targetBox').hidden=false; $('result').hidden=true;
+    setMsg('카드를 뒤집어 목표 숫자를 만들어 보세요. 첫 카드를 뒤집으면 시간이 시작돼요.',false);
+    render();
+  }
+
+  function onFlip(i){
+    if(phase!=='play') return;
+    if(t0===null){ t0=performance.now(); timerId=setInterval(tick,100); }
+    bits[i]=!bits[i];
+    render();
+    if(sumOf()!==target) return;
+
+    phase='check';
+    var V=vals(), parts=[];
+    bits.forEach(function(on,k){ if(on) parts.push(V[k]); });
+    setMsg('정답! '+parts.join(' + ')+' = '+target,true);
+    var last=(q===TOTAL-1);
+    if(last){ stopTimer(); elapsed=performance.now()-t0; $('timer').textContent=fmt(elapsed); }
+    render();
+    nextId=setTimeout(function(){
+      nextId=null;
+      if(last){ finish(); return; }
+      q++; bits=vals().map(function(){return false;});
+      pickTarget(); phase='play';
+      setMsg('좋아요! 다음 숫자를 만들어 보세요.',false);
+      render();
+    },1000);
+  }
+
+  function finish(){
+    phase='done';
+    $('final').textContent=fmt(elapsed);
+    $('rsum').textContent='카드 '+n+'장으로 '+TOTAL+'문제를 모두 풀었어요.';
+    $('targetBox').hidden=true; $('result').hidden=false;
+    setMsg('',false);
+    render();
+  }
+
+  function changeN(d){
+    var m=n+d; if(m<MINN||m>MAXN) return;
+    if(d>0){
+      n=m; buildCards(true);
+    } else { n=m; buildCards(false); }
+    newGame();
+  }
+
+  $('add').addEventListener('click',function(){changeN(1);});
+  $('sub').addEventListener('click',function(){changeN(-1);});
+  $('again').addEventListener('click',function(){buildCards(false);newGame();});
+  $('again2').addEventListener('click',function(){buildCards(false);newGame();});
+
+  buildCards(false);
+  newGame();
+})();
+</script>
+</body>
+</html>
